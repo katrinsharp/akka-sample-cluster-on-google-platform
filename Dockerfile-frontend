@@ -1,0 +1,4 @@
+# Pull base image.
+FROM java
+
+ADD target/scala-2.11/akka-sample-frontend.jar .
