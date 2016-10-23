@@ -76,6 +76,8 @@ sbt frontend:assembly # frontend
   ```
 **Background:** with Akka Cluster every node should know IPs/hostnames and ports of [cluster seed nodes](http://doc.akka.io/docs/akka/current/scala/cluster-usage.html#Joining_to_Seed_Nodes). Containers in Google Container Engine have dynamic IPs making it impossible to manage a list of static IPs for seed nodes. Some possible solutions are to use [etcd](https://github.com/coreos/etcd) directly or via [ConstructR](https://github.com/hseeberger/constructr) that utilizes etcd as Akka extension. However, Kubernetes also have [headless services](http://kubernetes.io/docs/user-guide/services/#headless-services). We are going to use it to expose all seed node IPs via DNS by having a headless service, which will be attached to each seed node through selector.
 
+**More about headless service**: In our case in [Discovery-service.yaml](../../../../Discovery-service.yaml) we create a headless service named `discovery-svc`, set `spec.clusterIP` to `None` and attach selector `name: seed-node` to it. The same selector is present in [Backend-seed.yaml](../../../../Backend-seed.yaml). This way all pods created out of backend seed deployment will run instance of `discovery-svc` service as well. Each instance of this service will register its IP under `discovery-svc.default.svc.cluster.local` DNS entry, where `default.svc.cluster.local` is a default [Kubernetes namespace](http://kubernetes.io/docs/user-guide/namespaces/).
+
 - Deploy headleass service:
   ```
   kubectl create -f Discovery-service.yaml
