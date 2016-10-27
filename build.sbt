@@ -1,6 +1,8 @@
 val akkaV = "2.4.3"
 
-resolvers ++= Seq("Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/")
+resolvers ++= Seq(
+  "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/",
+  Resolver.bintrayRepo("hseeberger", "maven"))
 
 val Frontend = config("frontend") extend(Compile)
 val Backend = config("backend") extend(Compile)
@@ -23,6 +25,7 @@ val project = Project(
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-cluster" % akkaV,
       "com.typesafe.akka" %% "akka-contrib" % akkaV,
+      "de.heikoseeberger" %% "constructr-akka" % "0.13.2",
       "org.scalatest" %% "scalatest" % "2.2.1" % "test"),
     javaOptions in run ++= Seq("-Xms128m", "-Xmx1024m"),
     Keys.fork in run := true,

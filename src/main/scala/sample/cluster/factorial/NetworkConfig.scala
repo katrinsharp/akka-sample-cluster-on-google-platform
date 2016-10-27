@@ -13,18 +13,4 @@ object NetworkConfig {
         flatMap(interface =>
           interface.getInetAddresses.find(_.isSiteLocalAddress).map(_.getHostAddress)).
         getOrElse("127.0.0.1")
-
-  def seedNodesIps: Seq[String] = Option(System.getenv("SEED_DISCOVERY_SERVICE")).
-      map(InetAddress.getAllByName(_).map(_.getHostAddress).toSeq).
-      getOrElse(Seq.empty)
-
-  def seedNodesPorts: Seq[String] = Option(System.getenv("SEED_PORT")).
-    map(port => Seq.fill(seedNodesIps.size)(port)).getOrElse(Seq.empty)
-
-  def seedsConfig(config: Config, clusterName: String): Config =
-    if(!seedNodesIps.isEmpty)
-      ConfigFactory.empty().withValue("akka.cluster.seed-nodes",
-        ConfigValueFactory.fromIterable(seedNodesIps.zip(seedNodesPorts).
-          map{case (ip, port) => s"akka.tcp://$clusterName@$ip:$port"}))
-    else ConfigFactory.empty()
 }

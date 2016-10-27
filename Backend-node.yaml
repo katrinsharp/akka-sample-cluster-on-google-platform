@@ -1,20 +1,20 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: cluster-backend-seed
+  name: cluster-backend
   labels:
-    name: cluster-backend-seed
+    name: cluster-backend
     app: akka-sample-cluster
 spec:
-  replicas: 2
+  replicas: 3
   template:
     metadata:
-      name: cluster-backend-seed
+      name: cluster-backend
       labels:
-        name: seed-node
+        name: node
     spec:
       containers:
-      - name: cluster-backend-seed
+      - name: cluster-backend
         image: gcr.io/affable-skill-147422/akka-sample-cluster-backend
         command: ["/bin/sh","-c"]
         args: ["java -jar akka-sample-backend.jar 2551"]

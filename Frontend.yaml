@@ -15,15 +15,15 @@ spec:
     spec:
       containers:
       - name: cluster-frontend
-        image: gcr.io/test1-1384/akka-sample-cluster-frontend
+        image: gcr.io/affable-skill-147422/akka-sample-cluster-frontend
         command: ["/bin/sh","-c"]
         args: ["java -jar akka-sample-frontend.jar 50 true"]
         env:
-          - name: SEED_DISCOVERY_SERVICE
+          - name: AKKA_SEED_DISCOVERY_SERVICE
             value: discovery-svc.default.svc.cluster.local
-          - name: THIS_IP
+          - name: AKKA_THIS_IP
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
-          - name: SEED_PORT
+          - name: AKKA_SEED_PORT
             value: "2551"

@@ -16,7 +16,11 @@ class FactorialBackend extends Actor with ActorLogging {
 
   def receive = {
     case (n: Int) =>
-      Future(factorial(n)) map { result => (n, result) } pipeTo sender()
+      val from = sender()
+      Future(factorial(n)) map { result =>
+        log.info("{}! = {} sender: {}", n, result, from.path)
+        (n, result)
+      } pipeTo from
   }
 
   def factorial(n: Int): BigInt = {
@@ -44,7 +48,6 @@ object FactorialBackend {
     val config = ConfigFactory.parseString("akka.cluster.roles = [backend]").
       withFallback(ConfigFactory.parseString(s"akka.remote.netty.tcp.port=$port")).
       withFallback(ConfigFactory.parseString(s"akka.remote.netty.tcp.bind-hostname=$internalIp")).
-      withFallback(NetworkConfig.seedsConfig(appConfig, clusterName)).
       withFallback(appConfig)
 
     val system = ActorSystem(clusterName, config)

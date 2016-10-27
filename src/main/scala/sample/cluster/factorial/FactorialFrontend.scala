@@ -62,7 +62,6 @@ object FactorialFrontend {
 
     val config = ConfigFactory.parseString("akka.cluster.roles = [frontend]").
       withFallback(ConfigFactory.parseString(s"akka.remote.netty.tcp.bind-hostname=$internalIp")).
-      withFallback(NetworkConfig.seedsConfig(appConfig, clusterName)).
       withFallback(appConfig)
 
     val system = ActorSystem(clusterName, config)

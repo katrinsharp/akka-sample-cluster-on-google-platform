@@ -49,12 +49,12 @@ sbt frontend:assembly # frontend
 
   + Running 2 backend nodes:
   ```
- docker run -d -it -e "THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" -p "2551:2551"  --name akka-sample-cluster-backend-1 akka-sample-cluster-backend java -jar akka-sample-backend.jar 2551
- docker run -d -it -e "THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" -p "2552:2552"  --name akka-sample-cluster-backend-2 akka-sample-cluster-backend java -jar akka-sample-backend.jar 2552
+ docker run -d -it -e "AKKA_THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" -p "2551:2551"  --name akka-sample-cluster-backend-1 akka-sample-cluster-backend java -jar akka-sample-backend.jar 2551
+ docker run -d -it -e "AKKA_THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" -p "2552:2552"  --name akka-sample-cluster-backend-2 akka-sample-cluster-backend java -jar akka-sample-backend.jar 2552
   ```
   + Running a frontend:
   ```
-  docker run -d -it -e "THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" --name akka-sample-frontend akka-sample-cluster-frontend java -jar akka-sample-frontend.jar
+  docker run -d -it -e "AKKA_THIS_IP=192.168.99.100" -e "AKKA_SAMPLE_SEED_IP_1=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_1=2551" -e "AKKA_SAMPLE_SEED_IP_2=192.168.99.100" -e "AKKA_SAMPLE_SEED_PORT_2=2552" --name akka-sample-frontend akka-sample-cluster-frontend java -jar akka-sample-frontend.jar
   ```
   **Note:** Substitute `192.168.99.100` with IP of your Docker machine (`docker-machine env`).
 
@@ -68,15 +68,21 @@ sbt frontend:assembly # frontend
 **Deploy to Google Container Engine:**
 
 - Pushing images to Google Container Engine. Documentation how to push can be found [here](https://cloud.google.com/container-registry/docs/pushing).
+  
+  **Note**: Don't forget to do `gcloud init` if you haven't done yet.
+
   ```
   docker tag akka-sample-cluster-backend gcr.io/<your-project-id>/akka-sample-cluster-backend
+
   docker tag akka-sample-cluster-frontend gcr.io/<your-project-id>/akka-sample-cluster-frontend
+
   gcloud docker push gcr.io/<your-project-id>/akka-sample-cluster-backend
+
   gcloud docker push gcr.io/<your-project-id>/akka-sample-cluster-frontend
   ```
 **Background:** with Akka Cluster every node should know IPs/hostnames and ports of [cluster seed nodes](http://doc.akka.io/docs/akka/current/scala/cluster-usage.html#Joining_to_Seed_Nodes). Containers in Google Container Engine have dynamic IPs making it impossible to manage a list of static IPs for seed nodes. Some possible solutions are to use [etcd](https://github.com/coreos/etcd) directly or via [ConstructR](https://github.com/hseeberger/constructr) that utilizes etcd as Akka extension. However, Kubernetes also have [headless services](http://kubernetes.io/docs/user-guide/services/#headless-services). We are going to use it to expose all seed node IPs via DNS by having a headless service, which will be attached to each seed node through selector.
 
-**More about headless service**: In our case in [Discovery-service.yaml](../../../../Discovery-service.yaml) we create a headless service named `discovery-svc`, set `spec.clusterIP` to `None` and attach selector `name: seed-node` to it. The same selector is present in [Backend-seed.yaml](../../../../Backend-seed.yaml). This way all pods created out of backend seed deployment will run instance of `discovery-svc` service as well. Each instance of this service will register its IP under `discovery-svc.default.svc.cluster.local` DNS entry, where `default.svc.cluster.local` is a default [Kubernetes namespace](http://kubernetes.io/docs/user-guide/namespaces/).
+**Headless service and Akka seed**: In our case in [Discovery-service.yaml](../../../../Discovery-service.yaml) we create a headless service named `discovery-svc`, set `spec.clusterIP` to `None` and attach selector `name: seed-node` to it. It means that any pod created from deployment marked by this selector will run instance of `discovery-svc` service as well. Each instance of this service will register its IP under `discovery-svc.default.svc.cluster.local` DNS entry, where `default.svc.cluster.local` is a default [Kubernetes namespace](http://kubernetes.io/docs/user-guide/namespaces/). We use this feature for managing centralized list of seed node IPs. However, the way Akka seed works, all nodes also need to see the same first node in list of seed nodes. So we split all backend nodes into 2 groups: backend seed nodes ([Backend-seed.yaml](../../../../Backend-seed.yaml)) and backend regular nodes ([Backend-node.yaml](../../../../Backend-node.yaml)). Backend seed nodes should always have fixed number of replicas in its deployment that equals to `constructr.dns.num-of-seeds` ([conf](../../../../src/main/resources/constructr-dns.conf)) and selector `seed-node`. We also use ConstructR with our implementation of [DnsCoordination](../../../../src/main/scala/constructr/dns/DnsCoordination.scala) that makes sure that any node can join only after the number of IPs registered in DNS equals to number of seed nodes. Once this number is reached, it always returns list of seed nodes sorted so all nodes see the same first node as required.
 
 - Deploy headleass service:
   ```
@@ -85,9 +91,13 @@ sbt frontend:assembly # frontend
 **Note:** In our case we mark all backend nodes as seed nodes, in real use case you need to mark only some of them as seed and have two different deployments.
 
 - Deploy a sampe application components:
-  + Backend:
+  + Backend seed:
   ```
   kubectl create -f Backend-seed.yaml
+  ```
+  + Backend:
+  ```
+  kubectl create -f Backend-node.yaml
   ```
   + Frontend:
   ```
@@ -105,7 +115,7 @@ sbt frontend:assembly # frontend
 kubectl scale --replicas=<target-number> deployment/cluster-backend-seed
 kubectl scale --replicas=<target-number> deployment/cluster-frontend
 ```
-For more `kubectl` options such listing pods, deplyoments etc: [Kubernetes cheatsheet](http://kubernetes.io/docs/user-guide/kubectl-cheatsheet/).
+For more `kubectl` options such as listing pods, deplyoments etc: [Kubernetes cheatsheet](http://kubernetes.io/docs/user-guide/kubectl-cheatsheet/).
 
 ## Summary
 
