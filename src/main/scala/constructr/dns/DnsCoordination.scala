@@ -46,6 +46,7 @@ class DnsCoordination
 
   private def seedNodesIps: Seq[String] = {
     val dns = appConfig.getString("constructr.dns.seed-discovery-service-url")
-    InetAddress.getAllByName(dns).map(ip => s"akka.tcp://$clusterName@${ip.getHostAddress}:$seedPort").toSeq
+    val akkaProtocol = appConfig.getString("constructr.dns.akka-protocol")
+    InetAddress.getAllByName(dns).map(ip => s"$akkaProtocol://$clusterName@${ip.getHostAddress}:$seedPort").toSeq
   }
 }
